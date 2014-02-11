@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.Map;
 
 import android.app.AlertDialog;
-import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
@@ -24,10 +23,10 @@ import android.text.TextUtils;
 import android.util.Log;
 
 public class Requirements {
-	private static String[] cIncompatible = new String[] {};
+	private static String[] cIncompatible = new String[] { "com.lbe.security" };
 
 	@SuppressWarnings("unchecked")
-	public static void check(final Context context) {
+	public static void check(final ActivityBase context) {
 		// Check Android version
 		if (Build.VERSION.SDK_INT != Build.VERSION_CODES.ICE_CREAM_SANDWICH_MR1
 				&& Build.VERSION.SDK_INT != Build.VERSION_CODES.JELLY_BEAN
@@ -37,7 +36,7 @@ public class Requirements {
 			AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(context);
 			alertDialogBuilder.setTitle(R.string.app_name);
 			alertDialogBuilder.setMessage(R.string.app_wrongandroid);
-			alertDialogBuilder.setIcon(Util.getThemed(context, R.attr.icon_launcher));
+			alertDialogBuilder.setIcon(context.getThemed(R.attr.icon_launcher));
 			alertDialogBuilder.setPositiveButton(context.getString(android.R.string.ok),
 					new DialogInterface.OnClickListener() {
 						@Override
@@ -59,7 +58,7 @@ public class Requirements {
 			AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(context);
 			alertDialogBuilder.setTitle(R.string.app_name);
 			alertDialogBuilder.setMessage(msg);
-			alertDialogBuilder.setIcon(Util.getThemed(context, R.attr.icon_launcher));
+			alertDialogBuilder.setIcon(context.getThemed(R.attr.icon_launcher));
 			alertDialogBuilder.setPositiveButton(context.getString(android.R.string.ok),
 					new DialogInterface.OnClickListener() {
 						@Override
@@ -89,7 +88,7 @@ public class Requirements {
 			AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(context);
 			alertDialogBuilder.setTitle(R.string.app_name);
 			alertDialogBuilder.setMessage(R.string.app_notenabled);
-			alertDialogBuilder.setIcon(Util.getThemed(context, R.attr.icon_launcher));
+			alertDialogBuilder.setIcon(context.getThemed(R.attr.icon_launcher));
 			alertDialogBuilder.setPositiveButton(context.getString(android.R.string.ok),
 					new DialogInterface.OnClickListener() {
 						@Override
@@ -110,7 +109,7 @@ public class Requirements {
 			AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(context);
 			alertDialogBuilder.setTitle(R.string.app_name);
 			alertDialogBuilder.setMessage(R.string.app_wrongenabler);
-			alertDialogBuilder.setIcon(Util.getThemed(context, R.attr.icon_launcher));
+			alertDialogBuilder.setIcon(context.getThemed(R.attr.icon_launcher));
 			alertDialogBuilder.setPositiveButton(context.getString(android.R.string.ok),
 					new DialogInterface.OnClickListener() {
 						@Override
@@ -133,7 +132,7 @@ public class Requirements {
 				AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(context);
 				alertDialogBuilder.setTitle(R.string.app_name);
 				alertDialogBuilder.setMessage(String.format(context.getString(R.string.app_incompatible), name));
-				alertDialogBuilder.setIcon(Util.getThemed(context, R.attr.icon_launcher));
+				alertDialogBuilder.setIcon(context.getThemed(R.attr.icon_launcher));
 				alertDialogBuilder.setPositiveButton(context.getString(android.R.string.ok),
 						new DialogInterface.OnClickListener() {
 							@Override
@@ -225,30 +224,43 @@ public class Requirements {
 					}
 
 				if (mapService.size() > 0) {
-					// Check services names
+					// Check services
+					int i = 0;
 					List<String> listMissing = new ArrayList<String>();
-					for (String service : XBinder.cListService)
-						if (!service.contains("iphonesubinfo"))
-							if (service.equals("telephony.registry") || service.equals("telephony.msim.registry")) {
-								if (!(mapService.containsKey("telephony.registry") || mapService
-										.containsKey("telephony.msim.registry")))
-									listMissing.add(service);
+					for (String name : XBinder.cServiceName) {
+						String descriptor = XBinder.cServiceDescriptor.get(i++);
+
+						// Skip iphonesubinfo, it is often not running
+						if (!name.equals("iphonesubinfo") && !name.equals("iphonesubinfo_msim")) {
+							// Check name
+							boolean checkDescriptor = false;
+							if (name.equals("telephony.registry")) {
+								if (mapService.containsKey(name))
+									checkDescriptor = true;
+								else if (!mapService.containsKey("telephony.msim.registry"))
+									listMissing.add(name);
+
+							} else if (name.equals("telephony.msim.registry")) {
+								if (mapService.containsKey(name))
+									checkDescriptor = true;
+								else if (!mapService.containsKey("telephony.registry"))
+									listMissing.add(name);
+
 							} else {
-								if (!mapService.containsKey(service))
-									listMissing.add(service);
+								if (mapService.containsKey(name))
+									checkDescriptor = true;
+								else
+									listMissing.add(name);
 							}
 
-					// Check service interfaces
-					for (String description : XBinder.cListDescription)
-						if (!description.contains("IPhoneSubInfo"))
-							if (description.startsWith("com.android.internal.telephony.ITelephonyRegistry")) {
-								if (!(mapService.containsValue("com.android.internal.telephony.ITelephonyRegistry") || mapService
-										.containsValue("com.android.internal.telephony.ITelephonyRegistryMSim")))
-									listMissing.add(description);
-							} else {
-								if (!mapService.containsValue(description))
-									listMissing.add(description);
+							// Check descriptor
+							if (checkDescriptor) {
+								String d = mapService.get(name);
+								if (d != null && !d.equals(descriptor))
+									listMissing.add(descriptor);
 							}
+						}
+					}
 
 					// Check result
 					if (listMissing.size() > 0) {
@@ -304,14 +316,14 @@ public class Requirements {
 		}
 	}
 
-	private static void reportClass(final Class<?> clazz, final Context context) {
+	private static void reportClass(final Class<?> clazz, final ActivityBase context) {
 		String msg = String.format("Incompatible %s", clazz.getName());
 		Util.log(null, Log.WARN, msg);
 
 		AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(context);
 		alertDialogBuilder.setTitle(R.string.app_name);
 		alertDialogBuilder.setMessage(msg);
-		alertDialogBuilder.setIcon(Util.getThemed(context, R.attr.icon_launcher));
+		alertDialogBuilder.setIcon(context.getThemed(R.attr.icon_launcher));
 		alertDialogBuilder.setPositiveButton(context.getString(android.R.string.ok),
 				new DialogInterface.OnClickListener() {
 					@Override
@@ -330,7 +342,7 @@ public class Requirements {
 		alertDialog.show();
 	}
 
-	private static void sendClassInfo(Class<?> clazz, Context context) {
+	private static void sendClassInfo(Class<?> clazz, ActivityBase context) {
 		StringBuilder sb = new StringBuilder();
 		sb.append(clazz.getName());
 		sb.append("\r\n");
@@ -353,41 +365,44 @@ public class Requirements {
 		sendSupportInfo(sb.toString(), context);
 	}
 
-	public static void sendSupportInfo(final String text, final Context context) {
-		AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(context);
-		alertDialogBuilder.setTitle(R.string.app_name);
-		alertDialogBuilder.setMessage(R.string.msg_support_info);
-		alertDialogBuilder.setIcon(Util.getThemed(context, R.attr.icon_launcher));
-		alertDialogBuilder.setPositiveButton(context.getString(android.R.string.ok),
-				new DialogInterface.OnClickListener() {
-					@Override
-					public void onClick(DialogInterface dialog, int _which) {
-						StringBuilder sb = new StringBuilder(text);
-						sb.insert(0, "\r\n");
-						sb.insert(0, String.format("Model: %s (%s)\r\n", Build.MODEL, Build.PRODUCT));
-						sb.insert(0, String.format("Android version: %s (SDK %d)\r\n", Build.VERSION.RELEASE,
-								Build.VERSION.SDK_INT));
-						sb.insert(0, String.format("XPrivacy version: %s\r\n", Util.getSelfVersionName(context)));
+	public static void sendSupportInfo(final String text, final ActivityBase context) {
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH_MR1) {
+			AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(context);
+			alertDialogBuilder.setTitle(R.string.app_name);
+			alertDialogBuilder.setMessage(R.string.msg_support_info);
+			alertDialogBuilder.setIcon(context.getThemed(R.attr.icon_launcher));
+			alertDialogBuilder.setPositiveButton(context.getString(android.R.string.ok),
+					new DialogInterface.OnClickListener() {
+						@Override
+						public void onClick(DialogInterface dialog, int _which) {
+							String ourVersion = Util.getSelfVersionName(context);
+							StringBuilder sb = new StringBuilder(text);
+							sb.insert(0, "\r\n");
+							sb.insert(0, String.format("Model: %s (%s)\r\n", Build.MODEL, Build.PRODUCT));
+							sb.insert(0, String.format("Android version: %s (SDK %d)\r\n", Build.VERSION.RELEASE,
+									Build.VERSION.SDK_INT));
+							sb.insert(0, String.format("XPrivacy version: %s\r\n", ourVersion));
 
-						Intent sendEmail = new Intent(Intent.ACTION_SEND);
-						sendEmail.setType("message/rfc822");
-						sendEmail.putExtra(Intent.EXTRA_EMAIL, new String[] { "marcel+xprivacy@faircode.eu" });
-						sendEmail.putExtra(Intent.EXTRA_SUBJECT, "XPrivacy support info");
-						sendEmail.putExtra(Intent.EXTRA_TEXT, sb.toString());
-						try {
-							context.startActivity(sendEmail);
-						} catch (Throwable ex) {
-							Util.bug(null, ex);
+							Intent sendEmail = new Intent(Intent.ACTION_SEND);
+							sendEmail.setType("message/rfc822");
+							sendEmail.putExtra(Intent.EXTRA_EMAIL, new String[] { "marcel+xprivacy@faircode.eu" });
+							sendEmail.putExtra(Intent.EXTRA_SUBJECT, "XPrivacy " + ourVersion + " support info");
+							sendEmail.putExtra(Intent.EXTRA_TEXT, sb.toString());
+							try {
+								context.startActivity(sendEmail);
+							} catch (Throwable ex) {
+								Util.bug(null, ex);
+							}
 						}
-					}
-				});
-		alertDialogBuilder.setNegativeButton(context.getString(android.R.string.cancel),
-				new DialogInterface.OnClickListener() {
-					@Override
-					public void onClick(DialogInterface dialog, int which) {
-					}
-				});
-		AlertDialog alertDialog = alertDialogBuilder.create();
-		alertDialog.show();
+					});
+			alertDialogBuilder.setNegativeButton(context.getString(android.R.string.cancel),
+					new DialogInterface.OnClickListener() {
+						@Override
+						public void onClick(DialogInterface dialog, int which) {
+						}
+					});
+			AlertDialog alertDialog = alertDialogBuilder.create();
+			alertDialog.show();
+		}
 	}
 }

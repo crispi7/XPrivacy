@@ -40,7 +40,6 @@ import org.xmlpull.v1.XmlSerializer;
 import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.annotation.SuppressLint;
-import android.app.Activity;
 import android.app.ProgressDialog;
 import android.app.AlertDialog;
 import android.content.Context;
@@ -76,7 +75,7 @@ import android.widget.TextView;
 import android.widget.EditText;
 import android.widget.Toast;
 
-public class ActivityShare extends Activity {
+public class ActivityShare extends ActivityBase {
 	private int mThemeId;
 	private int mActionId;
 	private AppListAdapter mAppAdapter;
@@ -476,8 +475,7 @@ public class ActivityShare extends Activity {
 
 			// Set background color
 			if (xApp.appInfo.isSystem())
-				holder.row.setBackgroundColor(getResources().getColor(
-						Util.getThemed(ActivityShare.this, R.attr.color_dangerous)));
+				holder.row.setBackgroundColor(getResources().getColor(getThemed(R.attr.color_dangerous)));
 			else
 				holder.row.setBackgroundColor(Color.TRANSPARENT);
 
@@ -578,8 +576,7 @@ public class ActivityShare extends Activity {
 			super.onPreExecute();
 
 			// Show progress dialog
-			ListView lvShare = (ListView) findViewById(R.id.lvShare);
-			mProgressDialog = new ProgressDialog(lvShare.getContext());
+			mProgressDialog = new ProgressDialog(ActivityShare.this);
 			mProgressDialog.setMessage(getString(R.string.msg_loading));
 			mProgressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
 			mProgressDialog.setProgressNumberFormat(null);
@@ -590,29 +587,27 @@ public class ActivityShare extends Activity {
 
 		@Override
 		protected void onPostExecute(List<AppHolder> listApp) {
-			super.onPostExecute(listApp);
+			if (!ActivityShare.this.isFinishing()) {
+				// Display app list
+				mAppAdapter = new AppListAdapter(ActivityShare.this, R.layout.shareentry, listApp);
+				ListView lvShare = (ListView) findViewById(R.id.lvShare);
+				lvShare.setAdapter(mAppAdapter);
 
-			// Display app list
-			mAppAdapter = new AppListAdapter(ActivityShare.this, R.layout.shareentry, listApp);
-			ListView lvShare = (ListView) findViewById(R.id.lvShare);
-			lvShare.setAdapter(mAppAdapter);
-
-			// Dismiss progress dialog
-			try {
+				// Dismiss progress dialog
 				mProgressDialog.dismiss();
-			} catch (Throwable ex) {
-				Util.bug(null, ex);
+
+				// If toggling, set title
+				if (mActionId == R.string.menu_clear_all || mActionId == R.string.menu_restrict_all)
+					ActivityShare.this.setTitle(mActionId);
+
+				// Launch non-interactive export
+				if (!mInteractive && mActionId == R.string.menu_export) {
+					mRunning = true;
+					new ExportTask().executeOnExecutor(mExecutor, new File(mFileName));
+				}
 			}
 
-			// If toggling, set title
-			if (mActionId == R.string.menu_clear_all || mActionId == R.string.menu_restrict_all)
-				ActivityShare.this.setTitle(mActionId);
-
-			// Launch non-interactive export
-			if (!mInteractive && mActionId == R.string.menu_export) {
-				mRunning = true;
-				new ExportTask().executeOnExecutor(mExecutor, new File(mFileName));
-			}
+			super.onPostExecute(listApp);
 		}
 	}
 
@@ -664,7 +659,8 @@ public class ActivityShare extends Activity {
 
 		@Override
 		protected void onPostExecute(Throwable result) {
-			done(result);
+			if (!ActivityShare.this.isFinishing())
+				done(result);
 			super.onPostExecute(result);
 		}
 	}
@@ -802,21 +798,22 @@ public class ActivityShare extends Activity {
 
 		@Override
 		protected void onPostExecute(Throwable result) {
-			if (mInteractive) {
-				done(result);
+			if (!ActivityShare.this.isFinishing())
+				if (mInteractive) {
+					done(result);
 
-				// Share
-				if (result == null) {
-					Intent intent = new Intent(android.content.Intent.ACTION_SEND);
-					intent.setType("text/xml");
-					intent.putExtra(Intent.EXTRA_STREAM, Uri.parse("file://" + mFileName));
-					startActivity(Intent.createChooser(intent,
-							String.format(getString(R.string.msg_saved_to), mFileName)));
+					// Share
+					if (result == null) {
+						Intent intent = new Intent(android.content.Intent.ACTION_SEND);
+						intent.setType("text/xml");
+						intent.putExtra(Intent.EXTRA_STREAM, Uri.parse("file://" + mFileName));
+						startActivity(Intent.createChooser(intent,
+								String.format(getString(R.string.msg_saved_to), mFileName)));
+					}
+				} else {
+					done(result);
+					finish();
 				}
-			} else {
-				done(result);
-				finish();
-			}
 
 			super.onPostExecute(result);
 		}
@@ -922,17 +919,19 @@ public class ActivityShare extends Activity {
 		@Override
 		protected void onPostExecute(Throwable result) {
 			// Mark as failed the apps that weren't found
-			if (result == null) {
-				List<AppHolder> listWaiting = new ArrayList<AppHolder>();
-				listWaiting.addAll(mAppAdapter.mAppsWaiting);
-				for (AppHolder app : listWaiting) {
-					mAppAdapter.setState(app.appInfo.getUid(), STATE_FAILURE);
-					mAppAdapter.setMessage(app.appInfo.getUid(), getString(R.string.msg_no_restrictions));
+			if (!ActivityShare.this.isFinishing()) {
+				if (result == null) {
+					List<AppHolder> listWaiting = new ArrayList<AppHolder>();
+					listWaiting.addAll(mAppAdapter.mAppsWaiting);
+					for (AppHolder app : listWaiting) {
+						mAppAdapter.setState(app.appInfo.getUid(), STATE_FAILURE);
+						mAppAdapter.setMessage(app.appInfo.getUid(), getString(R.string.msg_no_restrictions));
+					}
+					mAppAdapter.notifyDataSetChanged();
 				}
-				mAppAdapter.notifyDataSetChanged();
-			}
 
-			done(result);
+				done(result);
+			}
 			super.onPostExecute(result);
 		}
 	}
@@ -1164,6 +1163,7 @@ public class ActivityShare extends Activity {
 				String android_id = Secure.getString(ActivityShare.this.getContentResolver(), Secure.ANDROID_ID);
 				PackageInfo xInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
 				String confidence = PrivacyManager.getSetting(0, PrivacyManager.cSettingConfidence, "", false);
+				boolean dangerous = PrivacyManager.getSettingBool(0, PrivacyManager.cSettingDangerous, false, false);
 
 				// Initialize progress
 				mProgressCurrent = 0;
@@ -1243,11 +1243,15 @@ public class ActivityShare extends Activity {
 										JSONObject entry = settings.getJSONObject(i);
 										String restrictionName = entry.getString("restriction");
 										String methodName = entry.has("method") ? entry.getString("method") : null;
-										int voted_restricted = entry.getInt("restricted");
-										int voted_not_restricted = entry.getInt("not_restricted");
-										boolean restricted = (voted_restricted > voted_not_restricted);
-										listRestriction.add(new PRestriction(appInfo.getUid(), restrictionName,
-												methodName, restricted));
+										Hook hook = (methodName == null ? null : PrivacyManager.getHook(
+												restrictionName, methodName));
+										if (dangerous || hook == null || !hook.isDangerous()) {
+											int voted_restricted = entry.getInt("restricted");
+											int voted_not_restricted = entry.getInt("not_restricted");
+											boolean restricted = (voted_restricted > voted_not_restricted);
+											listRestriction.add(new PRestriction(appInfo.getUid(), restrictionName,
+													methodName, restricted));
+										}
 									}
 									PrivacyManager.setRestrictionList(listRestriction);
 									List<Boolean> newState = PrivacyManager.getRestartStates(appInfo.getUid(), null);
@@ -1293,7 +1297,8 @@ public class ActivityShare extends Activity {
 
 		@Override
 		protected void onPostExecute(Throwable result) {
-			done(result);
+			if (!ActivityShare.this.isFinishing())
+				done(result);
 			super.onPostExecute(result);
 		}
 	}
@@ -1504,12 +1509,13 @@ public class ActivityShare extends Activity {
 
 		@Override
 		protected void onPostExecute(Throwable result) {
-			done(result);
+			if (!ActivityShare.this.isFinishing())
+				done(result);
 			super.onPostExecute(result);
 		}
 	}
 
-	public static boolean registerDevice(final Context context) {
+	public static boolean registerDevice(final ActivityBase context) {
 		if (Util.hasProLicense(context) == null
 				&& !PrivacyManager.getSettingBool(0, PrivacyManager.cSettingRegistered, false, false)) {
 			// Get accounts
@@ -1529,7 +1535,7 @@ public class ActivityShare extends Activity {
 			// Build dialog
 			AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(context);
 			alertDialogBuilder.setTitle(R.string.msg_register);
-			alertDialogBuilder.setIcon(Util.getThemed(context, R.attr.icon_launcher));
+			alertDialogBuilder.setIcon(context.getThemed(R.attr.icon_launcher));
 			alertDialogBuilder.setView(view);
 			alertDialogBuilder.setPositiveButton(context.getString(android.R.string.ok),
 					new DialogInterface.OnClickListener() {
@@ -1559,9 +1565,9 @@ public class ActivityShare extends Activity {
 
 	@SuppressLint("DefaultLocale")
 	private static class RegisterTask extends AsyncTask<String, String, Throwable> {
-		private Context mContext;
+		private ActivityBase mContext;
 
-		public RegisterTask(Context context) {
+		public RegisterTask(ActivityBase context) {
 			mContext = context;
 		}
 
@@ -1616,27 +1622,30 @@ public class ActivityShare extends Activity {
 
 		@Override
 		protected void onPostExecute(Throwable result) {
-			String message;
-			if (result == null)
-				message = mContext.getString(R.string.msg_registered);
-			else
-				message = result.getLocalizedMessage();
+			if (mContext != null) {
+				String message;
+				if (result == null)
+					message = mContext.getString(R.string.msg_registered);
+				else
+					message = result.getLocalizedMessage();
 
-			// Build dialog
-			AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(mContext);
-			alertDialogBuilder.setTitle(R.string.app_name);
-			alertDialogBuilder.setMessage(message);
-			alertDialogBuilder.setIcon(Util.getThemed(mContext, R.attr.icon_launcher));
-			alertDialogBuilder.setPositiveButton(mContext.getString(android.R.string.ok),
-					new DialogInterface.OnClickListener() {
-						@Override
-						public void onClick(DialogInterface dialog, int which) {
-						}
-					});
+				// Build dialog
+				AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(mContext);
+				alertDialogBuilder.setTitle(R.string.app_name);
+				alertDialogBuilder.setMessage(message);
+				alertDialogBuilder.setIcon(mContext.getThemed(R.attr.icon_launcher));
+				alertDialogBuilder.setPositiveButton(mContext.getString(android.R.string.ok),
+						new DialogInterface.OnClickListener() {
+							@Override
+							public void onClick(DialogInterface dialog, int which) {
+							}
+						});
 
-			// Show dialog
-			AlertDialog alertDialog = alertDialogBuilder.create();
-			alertDialog.show();
+				// Show dialog
+				AlertDialog alertDialog = alertDialogBuilder.create();
+				alertDialog.show();
+			}
+			super.onPostExecute(result);
 		}
 	}
 
@@ -1733,7 +1742,7 @@ public class ActivityShare extends Activity {
 
 	// Helper classes
 
-	private static class AbortException extends Exception {
+	public static class AbortException extends Exception {
 		private static final long serialVersionUID = 1L;
 
 		public AbortException(Context context) {

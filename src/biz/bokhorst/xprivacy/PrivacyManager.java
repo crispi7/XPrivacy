@@ -89,6 +89,8 @@ public class PrivacyManager {
 	public final static String cSettingFRestriction = "FRestriction";
 	public final static String cSettingFRestrictionNot = "FRestrictionNot";
 	public final static String cSettingFPermission = "FPermission";
+	public final static String cSettingFOnDemand = "FOnDemand";
+	public final static String cSettingFOnDemandNot = "FOnDemandNot";
 	public final static String cSettingFUser = "FUser";
 	public final static String cSettingFSystem = "FSystem";
 	public final static String cSettingSortMode = "SortMode";
@@ -146,46 +148,36 @@ public class PrivacyManager {
 	static {
 		List<String> listRestriction = getRestrictions();
 
-		for (Hook hook : Meta.get())
-			if (Build.VERSION.SDK_INT >= hook.getSdk()) {
-				String restrictionName = hook.getRestrictionName();
+		for (Hook hook : Meta.get()) {
+			String restrictionName = hook.getRestrictionName();
 
-				// Check restriction
-				if (!listRestriction.contains(restrictionName))
-					Util.log(null, Log.WARN, "Not found restriction=" + restrictionName);
+			// Check restriction
+			if (!listRestriction.contains(restrictionName))
+				Util.log(null, Log.WARN, "Not found restriction=" + restrictionName);
 
-				// Enlist method
-				if (!mMethod.containsKey(restrictionName))
-					mMethod.put(restrictionName, new HashMap<String, Hook>());
-				mMethod.get(restrictionName).put(hook.getName(), hook);
+			// Enlist method
+			if (!mMethod.containsKey(restrictionName))
+				mMethod.put(restrictionName, new HashMap<String, Hook>());
+			mMethod.get(restrictionName).put(hook.getName(), hook);
 
-				// Cache restart required methods
-				if (hook.isRestartRequired()) {
-					if (!mRestart.containsKey(restrictionName))
-						mRestart.put(restrictionName, new ArrayList<String>());
-					mRestart.get(restrictionName).add(hook.getName());
-				}
-
-				// Enlist permissions
-				String[] permissions = hook.getPermissions();
-				if (permissions != null)
-					for (String perm : permissions)
-						if (!perm.equals("")) {
-							String aPermission = (perm.contains(".") ? perm : "android.permission." + perm);
-							if (!mPermission.containsKey(aPermission))
-								mPermission.put(aPermission, new ArrayList<Hook>());
-							if (!mPermission.get(aPermission).contains(hook))
-								mPermission.get(aPermission).add(hook);
-						}
+			// Cache restart required methods
+			if (hook.isRestartRequired()) {
+				if (!mRestart.containsKey(restrictionName))
+					mRestart.put(restrictionName, new ArrayList<String>());
+				mRestart.get(restrictionName).add(hook.getName());
 			}
 
-		Meta.annotate();
-	}
-
-	public static void registerHook(String restrictionName, String methodName, int sdk) {
-		if (restrictionName != null && methodName != null && Build.VERSION.SDK_INT >= sdk) {
-			if (!mMethod.containsKey(restrictionName) || !mMethod.get(restrictionName).containsKey(methodName))
-				Util.log(null, Log.WARN, "Missing method " + methodName + " SDK=" + Build.VERSION.SDK_INT);
+			// Enlist permissions
+			String[] permissions = hook.getPermissions();
+			if (permissions != null)
+				for (String perm : permissions)
+					if (!perm.equals("")) {
+						String aPermission = (perm.contains(".") ? perm : "android.permission." + perm);
+						if (!mPermission.containsKey(aPermission))
+							mPermission.put(aPermission, new ArrayList<Hook>());
+						if (!mPermission.get(aPermission).contains(hook))
+							mPermission.get(aPermission).add(hook);
+					}
 		}
 	}
 
@@ -213,8 +205,11 @@ public class PrivacyManager {
 
 	public static List<Hook> getHooks(String restrictionName) {
 		List<Hook> listMethod = new ArrayList<Hook>();
-		for (String methodName : mMethod.get(restrictionName).keySet())
-			listMethod.add(mMethod.get(restrictionName).get(methodName));
+		for (String methodName : mMethod.get(restrictionName).keySet()) {
+			Hook md = mMethod.get(restrictionName).get(methodName);
+			if (Build.VERSION.SDK_INT >= md.getSdk())
+				listMethod.add(mMethod.get(restrictionName).get(methodName));
+		}
 		Collections.sort(listMethod);
 		return listMethod;
 	}
@@ -234,7 +229,7 @@ public class PrivacyManager {
 	public static PRestriction getRestrictionEx(int uid, String restrictionName, String methodName) {
 		PRestriction query = new PRestriction(uid, restrictionName, methodName, false);
 		try {
-			return PrivacyService.getClient().getRestriction(query, false, "");
+			return PrivacyService.getRestriction(query, false, "");
 		} catch (RemoteException ex) {
 			Util.bug(null, ex);
 			return query;
@@ -273,9 +268,6 @@ public class PrivacyManager {
 		} else if (getHook(restrictionName, methodName) == null)
 			Util.log(hook, Log.WARN, "Unknown method=" + methodName);
 
-		if (!isApplication(uid) && Util.hasLBE())
-			return false;
-
 		// Check cache
 		boolean cached = false;
 		CRestriction key = new CRestriction(uid, restrictionName, methodName);
@@ -294,7 +286,7 @@ public class PrivacyManager {
 			try {
 				PRestriction query = new PRestriction(uid, restrictionName, methodName, false);
 				query.extra = extra;
-				restricted = PrivacyService.getClient().getRestriction(query, true, secret).restricted;
+				restricted = PrivacyService.getRestriction(query, true, secret).restricted;
 
 				// Add to cache
 				key.restricted = restricted;
@@ -336,7 +328,7 @@ public class PrivacyManager {
 			if (!getSettingBool(0, cSettingDangerous, false, false))
 				for (Hook md : getHooks(restrictionName))
 					if (md.isDangerous())
-						listRestriction.add(new PRestriction(uid, restrictionName, md.getName(), false, false));
+						listRestriction.add(new PRestriction(uid, restrictionName, md.getName(), false, true));
 
 		setRestrictionList(listRestriction);
 
@@ -464,9 +456,6 @@ public class PrivacyManager {
 		long start = System.currentTimeMillis();
 		String value = null;
 
-		if (!isApplication(uid) && Util.hasLBE())
-			return defaultValue;
-
 		// Check cache
 		boolean cached = false;
 		boolean willExpire = false;
@@ -486,17 +475,12 @@ public class PrivacyManager {
 		// Get settings
 		if (!cached)
 			try {
-				IPrivacyService client = PrivacyService.getClient();
-				if (client == null)
-					value = defaultValue;
-				else {
-					value = client.getSetting(new PSetting(Math.abs(uid), name, null)).value;
-					if (value == null)
-						if (uid > 0)
-							value = client.getSetting(new PSetting(0, name, defaultValue)).value;
-						else
-							value = defaultValue;
-				}
+				value = PrivacyService.getSetting(new PSetting(Math.abs(uid), name, null)).value;
+				if (value == null)
+					if (uid > 0)
+						value = PrivacyService.getSetting(new PSetting(0, name, defaultValue)).value;
+					else
+						value = defaultValue;
 
 				// Add to cache
 				key.setValue(value);
@@ -939,23 +923,26 @@ public class PrivacyManager {
 		try {
 			if (listPermission == null || listPermission.size() == 0 || listPermission.contains(""))
 				return true;
+
 			PackageManager pm = context.getPackageManager();
 			for (String packageName : listPackage) {
+				// Check absolute permissions
+				for (String apermission : listPermission)
+					if (apermission.contains("."))
+						if (pm.checkPermission(apermission, packageName) == PackageManager.PERMISSION_GRANTED)
+							return true;
+
+				// Check relative permissions
 				PackageInfo pInfo = pm.getPackageInfo(packageName, PackageManager.GET_PERMISSIONS);
 				if (pInfo != null && pInfo.requestedPermissions != null)
 					for (String rPermission : pInfo.requestedPermissions)
 						for (String permission : listPermission)
-							if (permission.equals("")) {
-								// No permission required
-								return true;
-							} else if (rPermission.toLowerCase().contains(permission.toLowerCase())) {
+							if (rPermission.toLowerCase().contains(permission.toLowerCase())) {
 								String aPermission = "android.permission." + permission;
 								if (!aPermission.equals(rPermission))
 									Util.log(null, Log.WARN, "Check permission=" + permission + "/" + rPermission);
 								return true;
-							} else if (permission.contains("."))
-								if (pm.checkPermission(permission, packageName) == PackageManager.PERMISSION_GRANTED)
-									return true;
+							}
 			}
 		} catch (Throwable ex) {
 			Util.bug(null, ex);

@@ -63,6 +63,7 @@
     <string name="msg_random_boot">Τυχαία διεύθυνση μετά την εκκίνηση</string>
     <string name="msg_restart">Application restart required</string>
     <string name="msg_register">Please register your device</string>
+    <string name="msg_email">Please enter your e-mail address:</string>
     <string name="msg_registered">Check your e-mail to activate your device</string>
     <string name="msg_service">Update service running</string>
     <string name="msg_migrating" formatted="false">Migrating %s</string>
@@ -102,6 +103,7 @@
     <string name="title_fpermission">Filter on permission</string>
     <string name="title_frestricted">Filter on restricted</string>
     <string name="title_fuser">Filter on user applications</string>
+    <string name="title_fondemand">Filter by on-demand</string>
     <string name="title_fsystem">Filter on system applications</string>
     <string name="title_fnot">Negate</string>
     <string name="title_sname">By name</string>

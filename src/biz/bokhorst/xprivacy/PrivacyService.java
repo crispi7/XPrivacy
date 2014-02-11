@@ -55,6 +55,7 @@ import android.widget.Toast;
 
 public class PrivacyService {
 	private static int mXUid = -1;
+	private static boolean mRegistered = false;
 	private static boolean mUseCache = false;
 	private static String mSecret = null;
 	private static Thread mWorker = null;
@@ -67,7 +68,7 @@ public class PrivacyService {
 	private static final String cTableUsage = "usage";
 	private static final String cTableSetting = "setting";
 
-	private static final int cCurrentVersion = 268;
+	private static final int cCurrentVersion = 273;
 	private static final String cServiceName = "xprivacy" + cCurrentVersion;
 
 	// TODO: define column names
@@ -154,7 +155,9 @@ public class PrivacyService {
 				Util.log(null, Log.WARN, "Invoking " + mAddService);
 				mAddService.invoke(null, cServiceName, mPrivacyService);
 			}
+
 			Util.log(null, Log.WARN, "Service registered name=" + cServiceName);
+			mRegistered = true;
 		} catch (Throwable ex) {
 			Util.bug(null, ex);
 		}
@@ -206,9 +209,33 @@ public class PrivacyService {
 		}
 	}
 
-	public static boolean getSettingBool(int uid, String name, boolean defaultValue) throws RemoteException {
-		String value = mPrivacyService.getSetting(new PSetting(uid, name, Boolean.toString(defaultValue))).value;
-		return Boolean.parseBoolean(value);
+	public static PRestriction getRestriction(final PRestriction restriction, boolean usage, String secret)
+			throws RemoteException {
+		if (mRegistered)
+			return mPrivacyService.getRestriction(restriction, usage, secret);
+		else {
+			IPrivacyService client = getClient();
+			if (client == null) {
+				Log.w("XPrivacy", "No client for " + restriction);
+				PRestriction result = new PRestriction(restriction);
+				result.restricted = false;
+				return result;
+			} else
+				return client.getRestriction(restriction, usage, secret);
+		}
+	}
+
+	public static PSetting getSetting(PSetting setting) throws RemoteException {
+		if (mRegistered)
+			return mPrivacyService.getSetting(setting);
+		else {
+			IPrivacyService client = getClient();
+			if (client == null) {
+				Log.w("XPrivacy", "No client for " + setting + " uid=" + Process.myUid() + " pid=" + Process.myPid());
+				return setting;
+			} else
+				return client.getSetting(setting);
+		}
 	}
 
 	private static final IPrivacyService.Stub mPrivacyService = new IPrivacyService.Stub() {
@@ -228,7 +255,7 @@ public class PrivacyService {
 		private ExecutorService mExecutor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
 		private final int cMaxUsageData = 500; // entries
-		private final int cMaxOnDemandDialog = 10; // seconds
+		private final int cMaxOnDemandDialog = 20; // seconds
 
 		// Management
 
@@ -243,7 +270,16 @@ public class PrivacyService {
 
 			List<String> listError = new ArrayList<String>();
 			synchronized (mListError) {
-				listError.addAll(mListError);
+				int c = 0;
+				int i = 0;
+				while (i++ < mListError.size()) {
+					String msg = mListError.get(i);
+					c += msg.length();
+					if (c < 5000)
+						listError.add(msg);
+					else
+						break;
+				}
 			}
 
 			File dbFile = getDbFile();
@@ -394,7 +430,13 @@ public class PrivacyService {
 				}
 
 				// Get meta data
-				Hook hook = PrivacyManager.getHook(restriction.restrictionName, restriction.methodName);
+				Hook hook = null;
+				if (restriction.methodName != null) {
+					hook = PrivacyManager.getHook(restriction.restrictionName, restriction.methodName);
+					if (hook == null)
+						// Can happen after replacing apk
+						Util.log(null, Log.WARN, "Hook not found in service: " + restriction);
+				}
 
 				// Check for system component
 				if (usage && !PrivacyManager.isApplication(restriction.uid))
@@ -464,7 +506,7 @@ public class PrivacyService {
 									// Method can be excepted
 									if (mresult.restricted)
 										mresult.restricted = ((state & 1) == 0);
-									// Category takes precedence
+									// Category asked=true takes precedence
 									if (!mresult.asked)
 										mresult.asked = ((state & 2) != 0);
 									methodFound = true;
@@ -482,8 +524,10 @@ public class PrivacyService {
 					}
 
 					if (!methodFound && hook != null && hook.isDangerous())
-						if (!getSettingBool(0, PrivacyManager.cSettingDangerous, false))
+						if (!getSettingBool(0, PrivacyManager.cSettingDangerous, false)) {
 							mresult.restricted = false;
+							mresult.asked = true;
+						}
 
 					// Fallback
 					if (!mresult.restricted && usage && PrivacyManager.isApplication(restriction.uid)
@@ -534,26 +578,28 @@ public class PrivacyService {
 							mExecutor.execute(new Runnable() {
 								public void run() {
 									try {
-										SQLiteDatabase db = getDatabase();
+										if (XActivityManagerService.canWriteUsageData()) {
+											SQLiteDatabase db = getDatabase();
 
-										mLock.writeLock().lock();
-										db.beginTransaction();
-										try {
-											ContentValues values = new ContentValues();
-											values.put("uid", restriction.uid);
-											values.put("restriction", restriction.restrictionName);
-											values.put("method", restriction.methodName);
-											values.put("restricted", mresult.restricted);
-											values.put("time", new Date().getTime());
-											db.insertWithOnConflict(cTableUsage, null, values,
-													SQLiteDatabase.CONFLICT_REPLACE);
-
-											db.setTransactionSuccessful();
-										} finally {
+											mLock.writeLock().lock();
+											db.beginTransaction();
 											try {
-												db.endTransaction();
+												ContentValues values = new ContentValues();
+												values.put("uid", restriction.uid);
+												values.put("restriction", restriction.restrictionName);
+												values.put("method", restriction.methodName);
+												values.put("restricted", mresult.restricted);
+												values.put("time", new Date().getTime());
+												db.insertWithOnConflict(cTableUsage, null, values,
+														SQLiteDatabase.CONFLICT_REPLACE);
+
+												db.setTransactionSuccessful();
 											} finally {
-												mLock.writeLock().unlock();
+												try {
+													db.endTransaction();
+												} finally {
+													mLock.writeLock().unlock();
+												}
 											}
 										}
 									} catch (Throwable ex) {
@@ -575,17 +621,22 @@ public class PrivacyService {
 			try {
 				enforcePermission();
 
+				PRestriction query;
 				if (selector.restrictionName == null)
 					for (String sRestrictionName : PrivacyManager.getRestrictions()) {
 						PRestriction restriction = new PRestriction(selector.uid, sRestrictionName, null, false);
-						restriction.restricted = getRestriction(restriction, false, null).restricted;
+						query = getRestriction(restriction, false, null);
+						restriction.restricted = query.restricted;
+						restriction.asked = query.asked;
 						result.add(restriction);
 					}
 				else
 					for (Hook md : PrivacyManager.getHooks(selector.restrictionName)) {
 						PRestriction restriction = new PRestriction(selector.uid, selector.restrictionName,
 								md.getName(), false);
-						restriction.restricted = getRestriction(restriction, false, null).restricted;
+						query = getRestriction(restriction, false, null);
+						restriction.restricted = query.restricted;
+						restriction.asked = query.asked;
 						result.add(restriction);
 					}
 			} catch (Throwable ex) {
@@ -1099,31 +1150,33 @@ public class PrivacyService {
 							@Override
 							public void run() {
 								try {
+									// Dialog
 									AlertDialog.Builder builder = getOnDemandDialogBuilder(restriction, hook, appInfo,
 											dangerous, result, context, latch);
 									AlertDialog alertDialog = builder.create();
 									alertDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_SYSTEM_DIALOG);
+									alertDialog.getWindow().setSoftInputMode(
+											WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
 									alertDialog.setCancelable(false);
 									alertDialog.setCanceledOnTouchOutside(false);
 									alertDialog.show();
 									holder.dialog = alertDialog;
 
+									// Progress bar
 									final ProgressBar mProgress = (ProgressBar) alertDialog.findViewById(1966);
-									holder.thread = new Thread(new Runnable() {
+									mProgress.setMax(cMaxOnDemandDialog * 20);
+									mProgress.setProgress(cMaxOnDemandDialog * 20);
+									Runnable rProgress = new Runnable() {
+										@Override
 										public void run() {
-											try {
-												while (mProgress.getProgress() < cMaxOnDemandDialog) {
-													Thread.sleep(1000);
-													mProgress.incrementProgressBy(1);
-												}
-											} catch (InterruptedException ignored) {
-											} catch (Throwable ex) {
-												Util.bug(null, ex);
+											AlertDialog dialog = holder.dialog;
+											if (dialog != null && dialog.isShowing() && mProgress.getProgress() > 0) {
+												mProgress.incrementProgressBy(-1);
+												mHandler.postDelayed(this, 50);
 											}
 										}
-									});
-									holder.thread.start();
-
+									};
+									mHandler.postDelayed(rProgress, 50);
 								} catch (Throwable ex) {
 									Util.bug(null, ex);
 									latch.countDown();
@@ -1146,10 +1199,6 @@ public class PrivacyService {
 								}
 							});
 						}
-
-						// Garbage collect
-						holder.thread.interrupt();
-						holder.thread = null;
 					} finally {
 						mOndemandSemaphore.release();
 					}
@@ -1163,7 +1212,6 @@ public class PrivacyService {
 
 		final class AlertDialogHolder {
 			public AlertDialog dialog = null;
-			public Thread thread = null;
 		}
 
 		private AlertDialog.Builder getOnDemandDialogBuilder(final PRestriction restriction, final Hook hook,
@@ -1234,7 +1282,7 @@ public class PrivacyService {
 			// Table for restriction
 			TableLayout table = new TableLayout(context);
 			LinearLayout.LayoutParams llTableParams = new LinearLayout.LayoutParams(
-					LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+					LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
 			table.setLayoutParams(llTableParams);
 			table.setPadding(0, 0, 0, vmargin / 2);
 			table.setShrinkAllColumns(true);
@@ -1243,40 +1291,60 @@ public class PrivacyService {
 				TableRow row2 = new TableRow(context);
 				TableRow row3 = new TableRow(context);
 
+				TableRow.LayoutParams cellParams0 = new TableRow.LayoutParams(TableRow.LayoutParams.WRAP_CONTENT,
+						TableRow.LayoutParams.WRAP_CONTENT);
+				TableRow.LayoutParams cellParams1 = new TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 1);
+				cellParams1.setMargins(hmargin / 2, 0, 0, 0);
+
 				// Category
 				TextView titleCategory = new TextView(context);
 				titleCategory.setText(resources.getString(R.string.title_category));
-				row1.addView(titleCategory);
+				titleCategory.setSingleLine(true);
+				row1.addView(titleCategory, cellParams0);
 
 				TextView category = new TextView(context);
 				int catId = resources.getIdentifier("restrict_" + restriction.restrictionName, "string", self);
 				category.setText(resources.getString(catId));
 				category.setTypeface(null, Typeface.BOLD);
-				row1.addView(category);
+				category.setSingleLine(true);
+				category.setEllipsize(TextUtils.TruncateAt.END);
+				row1.addView(category, cellParams1);
 
 				// Method
 				TextView titleMethod = new TextView(context);
 				titleMethod.setText(resources.getString(R.string.title_function));
-				row2.addView(titleMethod);
+				titleMethod.setSingleLine(true);
+				row2.addView(titleMethod, cellParams0);
 
 				TextView method = new TextView(context);
 				method.setText(restriction.methodName);
 				method.setTypeface(null, Typeface.BOLD);
-				row2.addView(method);
+				method.setSingleLine(true);
+				method.setEllipsize(TextUtils.TruncateAt.START);
+				row2.addView(method, cellParams1);
 
 				// Arguments
-				TextView titleArguments = new TextView(context);
-				titleArguments.setText(resources.getString(R.string.title_parameters));
-				row3.addView(titleArguments);
+				if (restriction.extra != null) {
+					TextView titleArguments = new TextView(context);
+					titleArguments.setText(resources.getString(R.string.title_parameters));
+					titleArguments.setSingleLine(true);
+					row3.addView(titleArguments, cellParams0);
 
-				TextView argument = new TextView(context);
-				argument.setText(restriction.extra == null ? "" : restriction.extra);
-				argument.setTypeface(null, Typeface.BOLD);
-				row3.addView(argument);
+					TextView argument = new TextView(context);
+					argument.setText(restriction.extra);
+					argument.setTypeface(null, Typeface.BOLD);
+					argument.setSingleLine(true);
+					argument.setEllipsize(TextUtils.TruncateAt.MIDDLE);
+					row3.addView(argument, cellParams1);
+				}
 
-				table.addView(row1);
-				table.addView(row2);
-				table.addView(row3);
+				TableLayout.LayoutParams rowParams = new TableLayout.LayoutParams(
+						TableLayout.LayoutParams.WRAP_CONTENT, TableLayout.LayoutParams.WRAP_CONTENT);
+
+				table.addView(row1, rowParams);
+				table.addView(row2, rowParams);
+				if (restriction.extra != null)
+					table.addView(row3, rowParams);
 			}
 			llContainer.addView(table);
 
@@ -1311,7 +1379,6 @@ public class PrivacyService {
 			// Progress bar
 			ProgressBar pbProgress = new ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal);
 			pbProgress.setId(1966);
-			pbProgress.setMax(cMaxOnDemandDialog);
 			pbProgress.setIndeterminate(false);
 			LinearLayout.LayoutParams llProgress = new LinearLayout.LayoutParams(
 					LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
@@ -1584,7 +1651,7 @@ public class PrivacyService {
 							db.setVersion(2);
 
 						if (db.needUpgrade(3)) {
-							mLock.writeLock().unlock();
+							mLock.writeLock().lock();
 							db.beginTransaction();
 							try {
 								db.execSQL("DELETE FROM usage WHERE method=''");

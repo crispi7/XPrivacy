@@ -63,6 +63,7 @@
     <string name="msg_random_boot">Generovat náhodné hodnoty při spuštění zařízení</string>
     <string name="msg_restart">Vyžadován restart aplikace</string>
     <string name="msg_register">Zaregistrujte prosím vaše zařízení</string>
+    <string name="msg_email">Please enter your e-mail address:</string>
     <string name="msg_registered">Zkontrolujte váš e-mail pro aktivaci vašeho zařízení</string>
     <string name="msg_service">Aktualizační služba je spuštěna</string>
     <string name="msg_migrating" formatted="false">Probíhá migrace %s</string>
@@ -103,6 +104,7 @@ nicméně je nemožné zaručit bezchybnou funkčnost na všech zařízeních a 
     <string name="title_frestricted">Filtrovat omezení</string>
     <string name="title_fsystem">Filtrovat systémové aplikace</string>
     <string name="title_fuser">Filtrovat uživatelské aplikace</string>
+    <string name="title_fondemand">Filter by on-demand</string>
     <string name="title_fnot">Opačně</string>
     <string name="title_sname">By name</string>
     <string name="title_suid">By uid</string>

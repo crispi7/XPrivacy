@@ -63,6 +63,7 @@
     <string name="msg_random_boot">Случайные значения после перезагрузки</string>
     <string name="msg_restart">Требуется перезапуск приложения</string>
     <string name="msg_register">Please register your device</string>
+    <string name="msg_email">Please enter your e-mail address:</string>
     <string name="msg_registered">Check your e-mail to activate your device</string>
     <string name="msg_service">Update service running</string>
     <string name="msg_migrating" formatted="false">Migrating %s</string>
@@ -102,6 +103,7 @@
     <string name="title_fpermission">с разрешениями</string>
     <string name="title_frestricted">запрещенные</string>
     <string name="title_fuser">пользовательские приложения</string>
+    <string name="title_fondemand">Filter by on-demand</string>
     <string name="title_fsystem">системные приложения</string>
     <string name="title_fnot">Переключить</string>
     <string name="title_sname">By name</string>

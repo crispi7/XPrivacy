@@ -63,6 +63,7 @@
     <string name="msg_random_boot">Palit-palitan ang mga paghihigpit sa unang paggamit</string>
     <string name="msg_restart">Kailangan paumpisahin muli ang Application</string>
     <string name="msg_register">Please register your device</string>
+    <string name="msg_email">Please enter your e-mail address:</string>
     <string name="msg_registered">Check your e-mail to activate your device</string>
     <string name="msg_service">Update service running</string>
     <string name="msg_migrating" formatted="false">Migrating %s</string>
@@ -102,6 +103,7 @@
     <string name="title_fpermission">Bigyan ng Filter at ipakita lamang sa mga may Pahintulot</string>
     <string name="title_frestricted">Bigyan ng Filter at ipakita lamang sa mga may Paghihigpit</string>
     <string name="title_fuser">Bigyan ng Filter at ipakita lamang sa iyong mga User Applications</string>
+    <string name="title_fondemand">Filter by on-demand</string>
     <string name="title_fsystem">Bigyan ng Filter at ipakita lamang sa iyong mga System Applications</string>
     <string name="title_fnot">Pagbaliktarin</string>
     <string name="title_sname">By name</string>

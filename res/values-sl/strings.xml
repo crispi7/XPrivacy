@@ -63,6 +63,7 @@
     <string name="msg_random_boot">Naključni podatki ob zagonu</string>
     <string name="msg_restart">Potreben je ponoven zagon aplikacije</string>
     <string name="msg_register">Please register your device</string>
+    <string name="msg_email">Please enter your e-mail address:</string>
     <string name="msg_registered">Check your e-mail to activate your device</string>
     <string name="msg_service">Update service running</string>
     <string name="msg_migrating" formatted="false">Migrating %s</string>
@@ -102,6 +103,7 @@
     <string name="title_fpermission">Filtriraj po pravicah</string>
     <string name="title_frestricted">Filtriraj po omejitvah</string>
     <string name="title_fuser">Filtriraj uporabniške programe</string>
+    <string name="title_fondemand">Filter by on-demand</string>
     <string name="title_fsystem">Filtriraj sistemske programe</string>
     <string name="title_fnot">Negiraj</string>
     <string name="title_sname">By name</string>

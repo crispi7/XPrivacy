@@ -63,6 +63,7 @@
     <string name="msg_random_boot">Slumpa efter uppstart</string>
     <string name="msg_restart">Application restart required</string>
     <string name="msg_register">Please register your device</string>
+    <string name="msg_email">Please enter your e-mail address:</string>
     <string name="msg_registered">Check your e-mail to activate your device</string>
     <string name="msg_service">Update service running</string>
     <string name="msg_migrating" formatted="false">Migrating %s</string>
@@ -102,6 +103,7 @@ Det är emellertid omöjligt att garantera att appen fungerar på alla enheter o
     <string name="title_fpermission">Filtrera efter behörighet</string>
     <string name="title_frestricted">Filtrera efter begränsad</string>
     <string name="title_fuser">Filtrera efter vanliga appar</string>
+    <string name="title_fondemand">Filter by on-demand</string>
     <string name="title_fsystem">Filtrera efter systemappar</string>
     <string name="title_fnot">Negate</string>
     <string name="title_sname">By name</string>

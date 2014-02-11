@@ -63,6 +63,7 @@
     <string name="msg_random_boot">Tilfeldige verdier etter omstart</string>
     <string name="msg_restart">Omstart av appen nødvendig</string>
     <string name="msg_register">Please register your device</string>
+    <string name="msg_email">Please enter your e-mail address:</string>
     <string name="msg_registered">Check your e-mail to activate your device</string>
     <string name="msg_service">Update service running</string>
     <string name="msg_migrating" formatted="false">Migrating %s</string>
@@ -100,6 +101,7 @@
     <string name="title_fpermission">Filtrer etter tillatelse</string>
     <string name="title_frestricted">Filtrer etter restriksjon</string>
     <string name="title_fuser">Filtrer etter vanlige apper</string>
+    <string name="title_fondemand">Filter by on-demand</string>
     <string name="title_fsystem">Filtrer etter system apper</string>
     <string name="title_fnot">Inverter</string>
     <string name="title_sname">By name</string>

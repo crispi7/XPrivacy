@@ -44,6 +44,10 @@ public class XPrivacy implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 
 	@SuppressLint("InlinedApi")
 	public void initZygote(StartupParam startupParam) throws Throwable {
+		// Check for LBE security master
+		if (Util.hasLBE())
+			return;
+
 		Util.log(null, Log.INFO, String.format("Load %s", startupParam.modulePath));
 
 		// Generate secret
@@ -149,6 +153,10 @@ public class XPrivacy implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 	}
 
 	public void handleLoadPackage(final LoadPackageParam lpparam) throws Throwable {
+		// Check for LBE security master
+		if (Util.hasLBE())
+			return;
+
 		// Log load
 		Util.log(null, Log.INFO, String.format("Load package=%s uid=%d", lpparam.packageName, Process.myUid()));
 
@@ -163,9 +171,6 @@ public class XPrivacy implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 		if (PrivacyManager.getRestriction(null, Process.myUid(), PrivacyManager.cIdentification, "SERIAL", mSecret))
 			XposedHelpers.setStaticObjectField(Build.class, "SERIAL",
 					PrivacyManager.getDefacedProp(Process.myUid(), "SERIAL"));
-
-		// Providers
-		hookAll(XContentProvider.getInstances(lpparam.packageName), lpparam.classLoader, mSecret);
 
 		// Advertising Id
 		try {
@@ -272,7 +277,25 @@ public class XPrivacy implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 
 	private static void hook(final XHook hook, ClassLoader classLoader, String secret) {
 		// Check SDK version
-		if (Build.VERSION.SDK_INT < hook.getSdk())
+		Hook md = null;
+		if (hook.getRestrictionName() == null) {
+			if (hook.getSdk() == 0)
+				Util.log(null, Log.ERROR, "No SDK specified for " + hook.getClassName() + "." + hook.getMethodName());
+		} else {
+			md = PrivacyManager.getHook(hook.getRestrictionName(), hook.getSpecifier());
+			if (md == null)
+				Util.log(null, Log.ERROR, "Hook not found " + hook.getRestrictionName() + "/" + hook.getSpecifier());
+			else if (hook.getSdk() != 0)
+				Util.log(null, Log.ERROR, "SDK specified for " + hook.getRestrictionName() + "/" + hook.getSpecifier());
+		}
+
+		int sdk = 0;
+		if (hook.getRestrictionName() == null)
+			sdk = hook.getSdk();
+		else if (md != null)
+			sdk = md.getSdk();
+
+		if (Build.VERSION.SDK_INT < sdk)
 			return;
 
 		// Provide secret
@@ -341,7 +364,7 @@ public class XPrivacy implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 			}
 
 			// Check if found
-			if (hookSet.isEmpty()) {
+			if (hookSet.isEmpty() && !hook.getClassName().startsWith("com.google.android.gms")) {
 				String packageName = AndroidAppHelper.currentPackageName();
 				String restrictionName = hook.getRestrictionName();
 				String message = String.format("%s: method not found: %s.%s for %s/%s uid=%d", packageName,
@@ -349,21 +372,7 @@ public class XPrivacy implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 						Process.myUid());
 				mListHookError.add(message);
 				Util.log(hook, hook.isOptional() ? Log.WARN : Log.ERROR, message);
-				for (Method declared : hookClass.getDeclaredMethods()) {
-					String dMethod = "Declared method=" + declared;
-					Util.log(hook, hook.isOptional() ? Log.WARN : Log.ERROR, dMethod);
-					mListHookError.add(dMethod);
-				}
 				return;
-			}
-
-			// Log
-			for (XC_MethodHook.Unhook unhook : hookSet) {
-				String packageName = AndroidAppHelper.currentPackageName();
-				String restrictionName = hook.getRestrictionName();
-				String message = String.format("%s: hooked %s for %s/%s uid=%d", packageName, unhook.getHookedMethod(),
-						restrictionName, hook.getSpecifier(), Process.myUid());
-				Util.log(hook, Log.INFO, message);
 			}
 		} catch (Throwable ex) {
 			Util.bug(null, ex);

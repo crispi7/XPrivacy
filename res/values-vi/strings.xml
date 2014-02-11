@@ -63,6 +63,7 @@
     <string name="msg_random_boot">Tạo thông tin ngẫu nhiên khi khởi động</string>
     <string name="msg_restart">Yêu cầu khởi động lại ứng dụng</string>
     <string name="msg_register">Please register your device</string>
+    <string name="msg_email">Please enter your e-mail address:</string>
     <string name="msg_registered">Check your e-mail to activate your device</string>
     <string name="msg_service">Update service running</string>
     <string name="msg_migrating" formatted="false">Migrating %s</string>
@@ -101,6 +102,7 @@
     <string name="title_fpermission">Lọc theo quyền</string>
     <string name="title_frestricted">Lọc các ứng dụng đã thiết lập hạn chế</string>
     <string name="title_fuser">Lọc các ứng dụng người dùng</string>
+    <string name="title_fondemand">Filter by on-demand</string>
     <string name="title_fsystem">Lọc các ứng dụng hệ thống</string>
     <string name="title_fnot">Negate</string>
     <string name="title_sname">By name</string>

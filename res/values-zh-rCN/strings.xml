@@ -63,6 +63,7 @@
     <string name="msg_random_boot">设备启动时重新生成随机数值</string>
     <string name="msg_restart">需要重启应用使规则生效</string>
     <string name="msg_register">Please register your device</string>
+    <string name="msg_email">Please enter your e-mail address:</string>
     <string name="msg_registered">Check your e-mail to activate your device</string>
     <string name="msg_service">Update service running</string>
     <string name="msg_migrating" formatted="false">Migrating %s</string>
@@ -102,6 +103,7 @@
     <string name="title_fpermission">含有权限</string>
     <string name="title_frestricted">限制使用</string>
     <string name="title_fuser">用户应用</string>
+    <string name="title_fondemand">Filter by on-demand</string>
     <string name="title_fsystem">系统应用</string>
     <string name="title_fnot">←反选</string>
     <string name="title_sname">By name</string>

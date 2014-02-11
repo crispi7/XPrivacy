@@ -63,6 +63,7 @@
     <string name="msg_random_boot">रिबूट के पश्चात अटपटा करे</string>
     <string name="msg_restart">application पुनःप्रारंभ जरुरी</string>
     <string name="msg_register">Please register your device</string>
+    <string name="msg_email">Please enter your e-mail address:</string>
     <string name="msg_registered">Check your e-mail to activate your device</string>
     <string name="msg_service">Update service running</string>
     <string name="msg_migrating" formatted="false">Migrating %s</string>
@@ -102,6 +103,7 @@
     <string name="title_fpermission">अनुमति के द्वारा फिल्टर करे</string>
     <string name="title_frestricted">प्रतिबंध पर फिल्टर करे</string>
     <string name="title_fuser">उपयोगकर्ता की Applications पर फिल्टर करे</string>
+    <string name="title_fondemand">Filter by on-demand</string>
     <string name="title_fsystem">सिस्टम की Applications पर फिल्टर करे</string>
     <string name="title_fnot">नकारे</string>
     <string name="title_sname">By name</string>

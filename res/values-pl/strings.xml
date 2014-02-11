@@ -63,6 +63,7 @@
     <string name="msg_random_boot">Losuj po restarcie</string>
     <string name="msg_restart">Wymagany restart aplikacji</string>
     <string name="msg_register">Proszę zarejestruj swoje urządzenie</string>
+    <string name="msg_email">Please enter your e-mail address:</string>
     <string name="msg_registered">Sprawdź swój e-mail aby zaktywować urządzenie</string>
     <string name="msg_service">Usługa aktualizacji pracuje</string>
     <string name="msg_migrating" formatted="false">Migrowanie %s</string>
@@ -102,6 +103,7 @@
     <string name="title_fpermission">Filtruj wg uprawnień</string>
     <string name="title_frestricted">Filtruj wg ograniczeń</string>
     <string name="title_fuser">Filtruj wg aplikacji użytkownika</string>
+    <string name="title_fondemand">Filter by on-demand</string>
     <string name="title_fsystem">Filtruj wg aplikacji systemowych</string>
     <string name="title_fnot">Odwróć</string>
     <string name="title_sname">Po nazwie</string>

@@ -63,6 +63,7 @@
     <string name="msg_random_boot">Véletlenszerűsítés boot után</string>
     <string name="msg_restart">Az alkalmazás újraindítása szükséges</string>
     <string name="msg_register">Please register your device</string>
+    <string name="msg_email">Please enter your e-mail address:</string>
     <string name="msg_registered">Check your e-mail to activate your device</string>
     <string name="msg_service">Update service running</string>
     <string name="msg_migrating" formatted="false">Migrating %s</string>
@@ -102,6 +103,7 @@ de lehetetlen garantálni hogy tökéletesen működjön az összes eszközön �
     <string name="title_fpermission">Szűrés engedély alapján</string>
     <string name="title_frestricted">Szűrés korlátozás alapján</string>
     <string name="title_fuser">Szűrés felhasználói alkalmazások alapján</string>
+    <string name="title_fondemand">Filter by on-demand</string>
     <string name="title_fsystem">Szűrés rendszeralkalmazások alapján</string>
     <string name="title_fnot">Negálás</string>
     <string name="title_sname">By name</string>
